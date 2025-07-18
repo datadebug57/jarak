@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pengukur Jarak & Kecepatan Akurat</title>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    button {
+      margin: 10px;
+      padding: 12px 20px;
+      font-size: 16px;
+    }
+    .data { font-size: 18px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>GPS Tracker Akurat</h1>
+  <button onclick="mulai()">Mulai</button>
+  <button onclick="reset()">Reset</button>
+  <div class="data">
+    <p>🛣️ Jarak: <span id="jarak">0</span> meter</p>
+    <p>⏱️ Waktu: <span id="waktu">0</span></p>
+    <p>🚗 Kecepatan: <span id="speed">0</span> km/jam</p>
+    <p>📊 Rata-rata: <span id="avgSpeed">0</span> km/jam</p>
+  </div>
+
+  <script>
+    let watchId, totalJarak = 0, totalWaktu = 0;
+    let lastPos = null, lastTime = null;
+    let timer;
+
+    function toRadians(deg) {
+      return deg * Math.PI / 180;
+    }
+
+    function hitungJarak(pos1, pos2) {
+      const R = 6371000;
+      const lat1 = toRadians(pos1.latitude);
+      const lat2 = toRadians(pos2.latitude);
+      const dLat = toRadians(pos2.latitude - pos1.latitude);
+      const dLon = toRadians(pos2.longitude - pos1.longitude);
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function mulai() {
+      if (!navigator.geolocation) {
+        alert("Geolocation tidak didukung.");
+        return;
+      }
+
+      let startTime = Date.now();
+      totalJarak = 0;
+      totalWaktu = 0;
+      lastPos = null;
+
+      // Mulai stopwatch akurat (waktu tempuh aktif)
+      timer = setInterval(() => {
+        totalWaktu++;
+        document.getElementById("waktu").textContent = formatWaktu(totalWaktu);
+      }, 1000);
+
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const coords = pos.coords;
+          const currentTime = Date.now();
+
+          // Filter: abaikan jika akurasi buruk
+          if (coords.accuracy > 30) return;
+
+          if (lastPos) {
+            const deltaTime = (currentTime - lastTime) / 1000;
+            if (deltaTime < 1.5) return; // biar tidak terlalu rapat
+
+            const jarak = hitungJarak(lastPos, coords);
+            if (jarak > 1 && jarak < 500) { // jarak tidak wajar (>500m) diabaikan
+              totalJarak += jarak;
+
+              const kecepatan = coords.speed != null
+                ? coords.speed * 3.6
+                : (jarak / deltaTime) * 3.6;
+
+              document.getElementById("jarak").textContent = totalJarak.toFixed(1);
+              document.getElementById("speed").textContent = kecepatan.toFixed(1);
+              const avg = totalWaktu > 0 ? (totalJarak / totalWaktu) * 3.6 : 0;
+              document.getElementById("avgSpeed").textContent = avg.toFixed(1);
+            }
+          }
+
+          lastPos = coords;
+          lastTime = currentTime;
+        },
+        (err) => {
+          alert("Gagal mendapatkan lokasi: " + err.message + " (Kode: " + err.code + ")");
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    function reset() {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+      clearInterval(timer);
+      totalJarak = 0;
+      totalWaktu = 0;
+      lastPos = null;
+      document.getElementById("jarak").textContent = 0;
+      document.getElementById("waktu").textContent = 0;
+      document.getElementById("speed").textContent = 0;
+      document.getElementById("avgSpeed").textContent = 0;
+    }
+
+    function formatWaktu(det) {
+      const jam = Math.floor(det / 3600);
+      const menit = Math.floor((det % 3600) / 60);
+      const sisa = det % 60;
+      return `${jam}j ${menit}m ${sisa}d`;
+    }
+  </script>
+</body>
+</html>
