@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Spidometer Digital Motor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: #000;
+      color: #0f0;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+    h1 {
+      margin-top: 20px;
+      font-size: 30px;
+      color: #0f0;
+    }
+    .speed {
+      font-size: 80px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+    .info {
+      font-size: 20px;
+      margin-top: 20px;
+    }
+    .circle {
+      border: 10px solid #0f0;
+      border-radius: 50%;
+      width: 200px;
+      height: 200px;
+      margin: 40px auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Spidometer Digital</h1>
+  <div class="circle">
+    <div class="speed" id="speed">0</div>
+  </div>
+  <div class="info" id="distance">Jarak: 0.00 km</div>
+  <div class="info" id="duration">Waktu: 0 menit</div>
+
+  <script>
+    let lastPosition = null;
+    let totalDistance = 0;
+    let startTime = Date.now();
+
+    function toRad(deg) {
+      return deg * Math.PI / 180;
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; // km
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function updateSpeed(position) {
+      const speedEl = document.getElementById('speed');
+      const distanceEl = document.getElementById('distance');
+      const durationEl = document.getElementById('duration');
+
+      const speed = position.coords.speed; // in m/s
+
+      if (speed !== null && !isNaN(speed)) {
+        speedEl.textContent = (speed * 3.6).toFixed(1); // Convert m/s to km/h
+      } else {
+        speedEl.textContent = '0';
+      }
+
+      if (lastPosition) {
+        const dist = calculateDistance(
+          lastPosition.coords.latitude,
+          lastPosition.coords.longitude,
+          position.coords.latitude,
+          position.coords.longitude
+        );
+        totalDistance += dist;
+        distanceEl.textContent = 'Jarak: ' + totalDistance.toFixed(2) + ' km';
+      }
+
+      const now = Date.now();
+      const minutes = Math.floor((now - startTime) / 60000);
+      durationEl.textContent = 'Waktu: ' + minutes + ' menit';
+
+      lastPosition = position;
+    }
+
+    function errorHandler(err) {
+      alert("❌ Gagal mendapatkan lokasi: " + err.message);
+    }
+
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(updateSpeed, errorHandler, {
+        enableHighAccuracy: true,
+        maximumAge: 1000,
+        timeout: 5000
+      });
+    } else {
+      alert("Geolocation tidak didukung oleh perangkat ini.");
+    }
+  </script>
+</body>
+</html>
