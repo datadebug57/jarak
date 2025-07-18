@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Spidometer Motor Akurat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <style>
+    body {
+      background: black;
+      color: lime;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding-top: 40px;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 30px;
+    }
+    .value {
+      font-size: 60px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    .label {
+      font-size: 20px;
+      color: #0f0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Spidometer Digital</h1>
+  <div class="label">Kecepatan</div>
+  <div class="value" id="speed">0.0 km/jam</div>
+  <div class="label">Jarak Tempuh</div>
+  <div class="value" id="distance">0.00 km</div>
+
+  <script>
+    let lastPosition = null;
+    let totalDistance = 0;
+
+    function toRadians(degrees) {
+      return degrees * Math.PI / 180;
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; // Radius bumi (km)
+      const dLat = toRadians(lat2 - lat1);
+      const dLon = toRadians(lon2 - lon1);
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function updateDisplay(position) {
+      const speedElement = document.getElementById("speed");
+      const distanceElement = document.getElementById("distance");
+
+      // Update kecepatan
+      const speed = position.coords.speed; // m/s
+      if (speed !== null && !isNaN(speed)) {
+        const kmh = (speed * 3.6).toFixed(1);
+        speedElement.textContent = `${kmh} km/jam`;
+      }
+
+      // Update jarak jika ada posisi sebelumnya
+      if (lastPosition) {
+        const dist = calculateDistance(
+          lastPosition.coords.latitude,
+          lastPosition.coords.longitude,
+          position.coords.latitude,
+          position.coords.longitude
+        );
+        if (dist > 0.0001) { // hindari noise GPS
+          totalDistance += dist;
+          distanceElement.textContent = `${totalDistance.toFixed(2)} km`;
+        }
+      }
+
+      lastPosition = position;
+    }
+
+    function handleError(error) {
+      alert("Gagal mendapatkan lokasi: " + error.message);
+    }
+
+    if ("geolocation" in navigator) {
+      navigator.geolocation.watchPosition(updateDisplay, handleError, {
+        enableHighAccuracy: true,
+        maximumAge: 1000,
+        timeout: 5000
+      });
+    } else {
+      alert("Geolocation tidak tersedia di perangkat ini.");
+    }
+  </script>
+</body>
+</html>
