@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pengukur Jarak & Kecepatan</title>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 30px;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    .data {
+      margin-top: 20px;
+      font-size: 20px;
+      line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+  <h1>Pengukur Jarak, Waktu, dan Kecepatan</h1>
+  <button onclick="mulai()">Mulai</button>
+  <button onclick="reset()">Reset</button>
+
+  <div class="data">
+    <p>🛣️ Jarak Tempuh:</p>
+    <p id="meter">0 meter</p>
+    <p id="kilometer">0 km</p>
+
+    <p>⏱️ Waktu Tempuh:</p>
+    <p id="waktu">0 detik</p>
+
+    <p>🚗 Kecepatan:</p>
+    <p id="kecepatan">0 km/jam</p>
+
+    <p>📊 Rata-rata Kecepatan:</p>
+    <p id="rataKecepatan">0 km/jam</p>
+  </div>
+
+  <script>
+    let watchId;
+    let totalJarak = 0;
+    let lastPos = null;
+    let startTime = null;
+    let lastTime = null;
+    let totalDetik = 0;
+
+    function toRadians(deg) {
+      return deg * Math.PI / 180;
+    }
+
+    function hitungJarak(pos1, pos2) {
+      const R = 6371000; // meter
+      const lat1 = toRadians(pos1.latitude);
+      const lat2 = toRadians(pos2.latitude);
+      const dLat = toRadians(pos2.latitude - pos1.latitude);
+      const dLon = toRadians(pos2.longitude - pos1.longitude);
+
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon/2)**2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    function formatWaktu(detik) {
+      const jam = Math.floor(detik / 3600);
+      const menit = Math.floor((detik % 3600) / 60);
+      const sisaDetik = detik % 60;
+      return `${jam} jam ${menit} menit ${sisaDetik} detik`;
+    }
+
+    function mulai() {
+      if (!navigator.geolocation) {
+        alert("Perangkat tidak mendukung GPS.");
+        return;
+      }
+
+      startTime = Date.now();
+      totalJarak = 0;
+      totalDetik = 0;
+      lastPos = null;
+
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const coords = pos.coords;
+          const now = Date.now();
+
+          if (lastPos && lastTime) {
+            const selisihDetik = (now - lastTime) / 1000;
+            const jarak = hitungJarak(lastPos, coords);
+
+            if (jarak > 1) { // hanya jika bergerak
+              totalJarak += jarak;
+              totalDetik += selisihDetik;
+            }
+
+            const kecepatanSaatIni = (jarak / selisihDetik) * 3.6; // m/s → km/h
+            document.getElementById("kecepatan").textContent = kecepatanSaatIni.toFixed(1) + " km/jam";
+          }
+
+          lastPos = coords;
+          lastTime = now;
+
+          // Update tampilan
+          document.getElementById("meter").textContent = totalJarak.toFixed(1) + " meter";
+          document.getElementById("kilometer").textContent = (totalJarak / 1000).toFixed(3) + " km";
+          document.getElementById("waktu").textContent = formatWaktu(Math.floor((now - startTime) / 1000));
+
+          const rata = totalDetik > 0 ? (totalJarak / totalDetik) * 3.6 : 0;
+          document.getElementById("rataKecepatan").textContent = rata.toFixed(1) + " km/jam";
+        },
+        (err) => {
+          alert("Gagal mendapatkan lokasi: " + err.message);
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 5000
+        }
+      );
+    }
+
+    function reset() {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+      totalJarak = 0;
+      totalDetik = 0;
+      lastPos = null;
+      lastTime = null;
+      startTime = null;
+
+      document.getElementById("meter").textContent = "0 meter";
+      document.getElementById("kilometer").textContent = "0 km";
+      document.getElementById("waktu").textContent = "0 detik";
+      document.getElementById("kecepatan").textContent = "0 km/jam";
+      document.getElementById("rataKecepatan").textContent = "0 km/jam";
+    }
+  </script>
+</body>
+</html>
